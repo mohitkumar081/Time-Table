@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>FAST NUCES – Karachi Timetable</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css"/>
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#121212"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="FAST TT"/>
+  <link rel="apple-touch-icon" href="icons/icon-192.png"/>
+</head>
+<body>
+
+<!-- DESKTOP NAV -->
+<header class="navbar">
+  <div class="nav-brand">
+    <span class="brand-icon">⚡</span>
+    <span class="brand-text">FAST<span class="brand-sub"> Timetable</span></span>
+  </div>
+  <nav class="nav-tabs">
+    <button class="nav-btn active" data-page="timetable">Timetable</button>
+    <button class="nav-btn" data-page="freerooms">Free Rooms</button>
+  </nav>
+  <a class="dev-badge" href="https://linkedin.com/in/mohat-kumar" target="_blank">
+    <div class="dev-avatar">MK</div>
+    <div class="dev-info">
+      <span class="dev-name">Mohat Kumar</span>
+      <span class="dev-role">MERN Stack Developer</span>
+    </div>
+  </a>
+  <button class="theme-toggle" id="themeToggle" title="Toggle theme">🌙</button>
+</header>
+
+<!-- MOBILE HEADER -->
+<header class="mob-header">
+  <div class="mob-header-top">
+    <div class="nav-brand">
+      <span class="brand-icon">⚡</span>
+    </div>
+    <div class="mob-header-right">
+      <a class="mob-dev-btn" href="https://linkedin.com/in/mohat-kumar" target="_blank">
+        <span class="mob-dev-avatar">MK</span>
+        <span class="mob-dev-name">Mohat Kumar</span>
+      </a>
+      <button class="theme-toggle" id="themeToggleMob" title="Toggle theme">🌙</button>
+    </div>
+  </div>
+
+  <!-- Nav selector below header -->
+  <div class="mob-page-selector" id="mobPageSelector">
+    <button class="mob-page-btn active" data-page="timetable">
+      <span class="mob-page-icon">📅</span>
+      <div>
+        <div class="mob-page-title">TimeTable</div>
+        <div class="mob-page-sub">View class schedules</div>
+      </div>
+    </button>
+    <button class="mob-page-btn" data-page="freerooms">
+      <span class="mob-page-icon">🚪</span>
+      <div>
+        <div class="mob-page-title">Free Rooms</div>
+        <div class="mob-page-sub">Available classrooms</div>
+      </div>
+    </button>
+  </div>
+</header>
+
+<!-- LOADING SCREEN -->
+<div class="loading-screen" id="loadingScreen">
+  <div class="loader-content">
+    <div class="loader-spinner"></div>
+    <p class="loader-text">Fetching live timetable...</p>
+    <p class="loader-sub">FAST NUCES · Karachi · Spring 2026</p>
+  </div>
+</div>
+
+<!-- PAGE: TIMETABLE -->
+<main class="page active" id="page-timetable">
+  <section class="hero">
+    <h1 class="hero-title">FAST Timetable</h1>
+    <p class="hero-sub">Search by section · teacher · subject · course code</p>
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="e.g. BCS-6B, Shaheer Ahmed..." autocomplete="off"/>
+      <button class="btn-search" id="searchBtn">Search</button>
+    </div>
+  </section>
+
+  <div class="view-toggle">
+    <button class="toggle-btn" id="btnMyClasses">My Classes</button>
+    <button class="toggle-btn active" id="btnAllClasses">All Classes</button>
+  </div>
+
+  <div class="day-filter" id="dayFilter">
+    <button class="day-btn active" data-day="All">All</button>
+    <button class="day-btn" data-day="MONDAY">Mon</button>
+    <button class="day-btn" data-day="TUESDAY">Tue</button>
+    <button class="day-btn" data-day="WEDNESDAY">Wed</button>
+    <button class="day-btn" data-day="THURSDAY">Thu</button>
+    <button class="day-btn" data-day="FRIDAY">Fri</button>
+  </div>
+
+  <div class="add-classes-wrap" id="addClassesWrap" style="display:none;">
+    <button class="btn-add-classes" id="btnAddClasses">＋ Add My Classes</button>
+  </div>
+
+  <div class="results-area" id="resultsArea"></div>
+</main>
+
+<!-- PAGE: FREE ROOMS -->
+<main class="page" id="page-freerooms">
+  <section class="hero">
+    <h1 class="hero-title">Free Rooms</h1>
+    <p class="hero-sub">Find available rooms right now</p>
+  </section>
+  <div class="free-room-controls">
+    <div class="control-group">
+      <label>Day</label>
+      <select id="frDaySelect">
+        <option value="MONDAY">Monday</option>
+        <option value="TUESDAY">Tuesday</option>
+        <option value="WEDNESDAY">Wednesday</option>
+        <option value="THURSDAY">Thursday</option>
+        <option value="FRIDAY">Friday</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label>Slot / Time</label>
+      <select id="frSlotSelect"></select>
+    </div>
+    <button class="btn-search" id="frSearchBtn">Find Free Rooms</button>
+  </div>
+  <div class="results-area" id="frResultsArea"></div>
+</main>
+
+<!-- FOOTER -->
+<footer class="site-footer">
+  <div class="footer-contact">
+    <span class="footer-label">QUICK CONTACT:</span>
+    <a class="footer-btn email-btn" href="mailto:mohatkumar44@gmail.com">✉ Email</a>
+    <a class="footer-btn wa-btn" href="https://wa.me/923188513211" target="_blank">💬 WhatsApp</a>
+  </div>
+  <p class="footer-copy">© 2026 FAST Timetable. All rights reserved.</p>
+</footer>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>Add Classes</h2>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-search">
+      <input type="text" id="modalSearchInput" placeholder="e.g. BCS-6B, Shaheer Ahmed..."/>
+      <button class="btn-search" id="modalSearchBtn">Search</button>
+    </div>
+    <div class="modal-list" id="modalList"></div>
+    <div class="modal-footer">
+      <button class="btn-add-confirm" id="modalAddBtn">Add Selected</button>
+    </div>
+  </div>
+</div>
+
+<!-- PWA Install Popup -->
+<div class="pwa-popup" id="pwaPopup">
+  <div class="pwa-popup-content">
+    <div class="pwa-icon">⚡</div>
+    <div class="pwa-text">
+      <h3>Install FAST Timetable</h3>
+      <p>Add to home screen for quick access — works offline too!</p>
+    </div>
+    <div class="pwa-actions">
+      <button class="pwa-btn-install" id="pwaInstall">Install App</button>
+      <button class="pwa-btn-close" id="pwaClose">✕</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/pwa.js"></script>
+</body>
+</html>
