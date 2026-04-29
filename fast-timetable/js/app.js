@@ -36,28 +36,43 @@ function parseCourseSection(line) {
 
 function parseCSVToEntries(csvText, day) {
   const entries = [];
-  const rows = csvText.split(/\r?\n/).map(r => {
-    const cols = [];
-    let cur = '', inQ = false;
-    for (const ch of r) {
-      if (ch === '"') inQ = !inQ;
-      else if (ch === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
-      else cur += ch;
-    }
-    cols.push(cur.trim());
-    return cols;
-  });
 
-  // Find time row (row with time patterns)
+  // Proper CSV parser that handles quoted newlines
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], cur = '', inQ = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (ch === '"') {
+        if (inQ && text[i+1] === '"') { cur += '"'; i++; }
+        else inQ = !inQ;
+      } else if (ch === ',' && !inQ) {
+        row.push(cur); cur = '';
+      } else if ((ch === '\n' || (ch === '\r' && text[i+1] === '\n')) && !inQ) {
+        if (ch === '\r') i++;
+        row.push(cur); rows.push(row);
+        row = []; cur = '';
+      } else {
+        cur += ch;
+      }
+    }
+    if (cur || row.length) { row.push(cur); rows.push(row); }
+    return rows;
+  }
+
+  const rows = parseCSV(csvText);
+
+  // Find time row
   let timeRowIdx = -1;
   for (let i = 0; i < Math.min(rows.length, 6); i++) {
-    if (rows[i].some(c => /\d{1,2}:\d{2}/.test(c))) { timeRowIdx = i; break; }
+    if (rows[i].some(c => /\d{1,2}:\d{2}/.test(c || ''))) { timeRowIdx = i; break; }
   }
   if (timeRowIdx === -1) return entries;
 
   const slotTimes = {};
   rows[timeRowIdx].forEach((val, ci) => {
-    if (val && /\d{1,2}:\d{2}/.test(val)) slotTimes[ci] = val.trim();
+    const v = (val || '').trim();
+    if (v && /\d{1,2}:\d{2}/.test(v)) slotTimes[ci] = v;
   });
 
   const SKIP = new Set(['classrooms','computing labs','engineering labs','venues/time','slots','']);
@@ -65,7 +80,7 @@ function parseCSVToEntries(csvText, day) {
 
   for (let r = timeRowIdx + 1; r < rows.length; r++) {
     const row = rows[r];
-    if (!row || !row[0]) continue;
+    if (!row || !(row[0] || '').trim()) continue;
     const room = row[0].trim();
     if (!room || SKIP.has(room.toLowerCase())) continue;
     if (SKIP_START.some(s => room.toLowerCase().startsWith(s))) continue;
@@ -73,10 +88,16 @@ function parseCSVToEntries(csvText, day) {
     Object.entries(slotTimes).forEach(([ci, time]) => {
       const cell = (row[+ci] || '').trim();
       if (!cell) return;
-      const lines = cell.split(/\n/).map(l => l.trim()).filter(Boolean);
+
+      // Cell contains "CourseCode Section\nTeacher" (newline inside quotes)
+      const lines = cell.split('\n').map(l => l.trim()).filter(Boolean);
       if (!lines.length) return;
+
       const { courseCode, section } = parseCourseSection(lines[0]);
       const teacher = lines.slice(1).join(' ').trim();
+
+      if (!courseCode) return;
+
       entries.push({
         day, time, room, courseCode, section, teacher,
         slot: TIME_SLOT_ORDER[time] || 99,
