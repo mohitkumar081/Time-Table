@@ -2,6 +2,112 @@ const DAYS       = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY'];
 const DAY_LABELS = { MONDAY:'Monday', TUESDAY:'Tuesday', WEDNESDAY:'Wednesday', THURSDAY:'Thursday', FRIDAY:'Friday' };
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes auto-refresh
 
+// ─── Google Sheets Live Config ────────────────────────────────
+const SHEET_PUB_ID = '1lO7z-XERgpNst3HDQnSFnMPFu8USTAdTliUUO_xDDck';
+const SHEET_GIDS = {
+  MONDAY:    '1082599964',
+  TUESDAY:   '1552752041',
+  WEDNESDAY: '33479239',
+  THURSDAY:  '678536264',
+  FRIDAY:    '1292472437',
+};
+
+const TIME_SLOT_ORDER = {
+  '08:00-8:50':1,'08:00-08:50':1,
+  '08:55-09:45':2,
+  '09:50:-10:40':3,'09:50-10:40':3,
+  '10:45-11:35':4,
+  '11:40-12:30':5,
+  '12:35-1:25':6,
+  '1:30-2:20':7,
+  '2:25-3:15':8,
+  '3:20-4:10':9,
+};
+
+function parseCourseSection(line) {
+  const m = line.match(/\b(B[A-Z]{1,3}-\d+[A-Z])/);
+  if (m) {
+    const idx = line.indexOf(m[0]);
+    return { courseCode: line.slice(0, idx).trim(), section: line.slice(idx).trim() };
+  }
+  const parts = line.split(' ');
+  return { courseCode: parts[0] || '', section: parts.slice(1).join(' ') };
+}
+
+function parseCSVToEntries(csvText, day) {
+  const entries = [];
+  const rows = csvText.split(/\r?\n/).map(r => {
+    const cols = [];
+    let cur = '', inQ = false;
+    for (const ch of r) {
+      if (ch === '"') inQ = !inQ;
+      else if (ch === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+      else cur += ch;
+    }
+    cols.push(cur.trim());
+    return cols;
+  });
+
+  // Find time row (row with time patterns)
+  let timeRowIdx = -1;
+  for (let i = 0; i < Math.min(rows.length, 6); i++) {
+    if (rows[i].some(c => /\d{1,2}:\d{2}/.test(c))) { timeRowIdx = i; break; }
+  }
+  if (timeRowIdx === -1) return entries;
+
+  const slotTimes = {};
+  rows[timeRowIdx].forEach((val, ci) => {
+    if (val && /\d{1,2}:\d{2}/.test(val)) slotTimes[ci] = val.trim();
+  });
+
+  const SKIP = new Set(['classrooms','computing labs','engineering labs','venues/time','slots','']);
+  const SKIP_START = ['reserved','classrooms','computing','engineering'];
+
+  for (let r = timeRowIdx + 1; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || !row[0]) continue;
+    const room = row[0].trim();
+    if (!room || SKIP.has(room.toLowerCase())) continue;
+    if (SKIP_START.some(s => room.toLowerCase().startsWith(s))) continue;
+
+    Object.entries(slotTimes).forEach(([ci, time]) => {
+      const cell = (row[+ci] || '').trim();
+      if (!cell) return;
+      const lines = cell.split(/\n/).map(l => l.trim()).filter(Boolean);
+      if (!lines.length) return;
+      const { courseCode, section } = parseCourseSection(lines[0]);
+      const teacher = lines.slice(1).join(' ').trim();
+      entries.push({
+        day, time, room, courseCode, section, teacher,
+        slot: TIME_SLOT_ORDER[time] || 99,
+        key: `${day}|${time}|${room}|${courseCode}|${section}`
+      });
+    });
+  }
+  return entries;
+}
+
+async function fetchDayFromSheets(day) {
+  const gid = SHEET_GIDS[day];
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_PUB_ID}/export?format=csv&gid=${gid}`;
+  const proxies = [
+    url,
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  ];
+  for (const u of proxies) {
+    try {
+      const res = await fetch(u + '&t=' + Date.now());
+      if (!res.ok) continue;
+      const text = await res.text();
+      if (text.length < 50 || text.toLowerCase().includes('sign in')) continue;
+      console.log(`✅ ${day}: ${text.length} chars`);
+      return text;
+    } catch(e) { console.warn(`fetch failed: ${e.message}`); }
+  }
+  throw new Error(`Could not fetch ${day}`);
+}
+
 // ─── State ───────────────────────────────────────────────────
 let allClasses    = [];
 let myClassKeys   = new Set(JSON.parse(localStorage.getItem('myClasses') || '[]'));
@@ -27,28 +133,47 @@ const frDaySelect     = document.getElementById('frDaySelect');
 // ─── Data Fetch from timetable.json ──────────────────────────
 // timetable.json is generated from the xlsx and placed in data/ folder
 // Update it by running: python generate_timetable.py
-async function loadTimetableJSON() {
-  // Try data/timetable.json first, then root
+async function loadLiveData() {
+  // Try live Google Sheets first
+  try {
+    const allEntries = [];
+    for (const day of DAYS) {
+      try {
+        const csv = await fetchDayFromSheets(day);
+        const entries = parseCSVToEntries(csv, day);
+        allEntries.push(...entries);
+        console.log(`✅ ${day}: ${entries.length} entries`);
+      } catch(e) {
+        console.warn(`❌ ${day} failed:`, e.message);
+      }
+    }
+    if (allEntries.length > 100) {
+      console.log(`🔄 Live data loaded: ${allEntries.length} entries`);
+      return allEntries;
+    }
+  } catch(e) {
+    console.warn('Live fetch failed, trying JSON fallback:', e.message);
+  }
+
+  // Fallback to static JSON
   const urls = ['data/timetable.json', 'timetable.json'];
   for (const url of urls) {
     try {
-      const res = await fetch(url + '?t=' + Date.now()); // cache bust
+      const res = await fetch(url + '?t=' + Date.now());
       if (!res.ok) continue;
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
-        console.log('✅ Loaded timetable.json:', data.length, 'entries');
+        console.log('✅ Fallback JSON loaded:', data.length, 'entries');
         return data;
       }
-    } catch(e) {
-      console.warn('JSON fetch failed:', e.message);
-    }
+    } catch(e) { console.warn('JSON fallback failed:', e.message); }
   }
-  throw new Error('Could not load timetable.json');
+  throw new Error('Could not load timetable data');
 }
 
 async function refreshData() {
   try {
-    const entries = await loadTimetableJSON();
+    const entries = await loadLiveData();
     allClasses = entries;
     loadError = '';
     console.log('🔄 Timetable refreshed —', allClasses.length, 'entries loaded');
@@ -60,7 +185,7 @@ async function refreshData() {
     console.error('Error loading data:', err);
     loadError = 'Could not load timetable data.';
     if (!allClasses.length) {
-      showLoadError('Could not load timetable. Make sure data/timetable.json exists.');
+      showLoadError('Could not load timetable. Please try again later.');
     }
     hideLoading();
   }
