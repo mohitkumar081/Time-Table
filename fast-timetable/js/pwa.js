@@ -1,60 +1,64 @@
 // ===== PWA Install Handler =====
 
-// Register Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('✅ SW registered:', reg.scope))
+      .then(reg => console.log('✅ SW registered'))
       .catch(err => console.log('❌ SW failed:', err));
   });
 }
 
 let deferredPrompt = null;
-const popup   = document.getElementById('pwaPopup');
+const popup      = document.getElementById('pwaPopup');
 const btnInstall = document.getElementById('pwaInstall');
 const btnClose   = document.getElementById('pwaClose');
 
-// Capture install prompt
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isAndroid    = /android/i.test(navigator.userAgent);
+
+if (isStandalone) localStorage.setItem('pwaInstalled', 'true');
+
+function showPopup() {
+  if (localStorage.getItem('pwaPopupDismissed')) return;
+  if (localStorage.getItem('pwaInstalled')) return;
+  if (isStandalone) return;
+  setTimeout(() => popup?.classList.add('show'), 2500);
+}
+
+// Desktop + Android Chrome
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredPrompt = e;
-
-  // Show popup after 2 seconds if not dismissed before
-  const dismissed = localStorage.getItem('pwaPopupDismissed');
-  const installed  = localStorage.getItem('pwaInstalled');
-
-  if (!dismissed && !installed) {
-    setTimeout(() => {
-      popup.classList.add('show');
-    }, 2000);
-  }
+  showPopup();
 });
 
-// Install button clicked
+// iOS Safari
+if (isIOS && !isStandalone) showPopup();
+
+// Samsung + other Android
+if (isAndroid && !isStandalone) showPopup();
+
 btnInstall?.addEventListener('click', async () => {
-  if (!deferredPrompt) {
-    // Fallback for browsers that don't support prompt
-    alert('To install:\n1. Tap the menu (⋮) in your browser\n2. Select "Add to Home Screen"');
-    return;
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') localStorage.setItem('pwaInstalled', 'true');
+    deferredPrompt = null;
+    popup?.classList.remove('show');
+  } else if (isIOS) {
+    alert('iOS install:\n1. Share button dabao ⬆️\n2. "Add to Home Screen" select karo\n3. Add dabao ✅');
+  } else {
+    alert('Install karo:\n1. Browser menu ⋮ kholo\n2. "Add to Home Screen" select karo\n3. Install dabao ✅');
   }
-  deferredPrompt.prompt();
-  const { outcome } = await deferredPrompt.userChoice;
-  if (outcome === 'accepted') {
-    localStorage.setItem('pwaInstalled', 'true');
-    console.log('✅ PWA installed');
-  }
-  deferredPrompt = null;
-  popup.classList.remove('show');
 });
 
-// Close button
 btnClose?.addEventListener('click', () => {
-  popup.classList.remove('show');
+  popup?.classList.remove('show');
   localStorage.setItem('pwaPopupDismissed', 'true');
 });
 
-// Mark as installed if launched from home screen
-if (window.matchMedia('(display-mode: standalone)').matches) {
+window.addEventListener('appinstalled', () => {
   localStorage.setItem('pwaInstalled', 'true');
-  popup.classList.remove('show');
-}
+  popup?.classList.remove('show');
+});

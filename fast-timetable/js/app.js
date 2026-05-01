@@ -1,16 +1,62 @@
 const DAYS       = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY'];
 const DAY_LABELS = { MONDAY:'Monday', TUESDAY:'Tuesday', WEDNESDAY:'Wednesday', THURSDAY:'Thursday', FRIDAY:'Friday' };
-const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes auto-refresh
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
-// ─── Google Sheets Live Config ────────────────────────────────
-const SHEET_PUB_ID = '1lO7z-XERgpNst3HDQnSFnMPFu8USTAdTliUUO_xDDck';
-const SHEET_GIDS = {
-  MONDAY:    '1082599964',
-  TUESDAY:   '1552752041',
-  WEDNESDAY: '33479239',
-  THURSDAY:  '678536264',
-  FRIDAY:    '1292472437',
-};
+// ─── Apps Script Web App API ──────────────────────────────────
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwX0T-kAJH-7f3RdW5Oq3T4Trfb3o5VjBdxv8wcNbPsbAvAymUSD9t281xLND4VyjZO/exec';
+
+async function loadLiveData() {
+  // Try Apps Script Web App first (live data)
+  try {
+    console.log('🔄 Fetching live data from Apps Script...');
+    const res = await fetch(APPS_SCRIPT_URL);
+    if (res.ok) {
+      const json = await res.json();
+      if (json.ok && json.data && json.data.length > 100) {
+        console.log(`✅ Live data loaded: ${json.data.length} entries`);
+        return json.data;
+      }
+    }
+  } catch(e) {
+    console.warn('Apps Script fetch failed:', e.message);
+  }
+
+  // Fallback to static JSON
+  console.log('⚠️ Falling back to static JSON...');
+  const urls = ['data/timetable.json', 'timetable.json'];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url + '?t=' + Date.now());
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        console.log('✅ Fallback JSON loaded:', data.length, 'entries');
+        return data;
+      }
+    } catch(e) { console.warn('JSON fallback failed:', e.message); }
+  }
+  throw new Error('Could not load timetable data');
+}
+
+async function refreshData() {
+  try {
+    const entries = await loadLiveData();
+    allClasses = entries;
+    loadError = '';
+    console.log('🔄 Timetable refreshed —', allClasses.length, 'entries loaded');
+    populateSlotFilter();
+    renderTimetable();
+    updateCurrentDayHighlight();
+    hideLoading();
+  } catch (err) {
+    console.error('Error loading data:', err);
+    loadError = 'Could not load timetable data.';
+    if (!allClasses.length) {
+      showLoadError('Could not load timetable. Please try again later.');
+    }
+    hideLoading();
+  }
+}
 
 const TIME_SLOT_ORDER = {
   '08:00-8:50':1,'08:00-08:50':1,
