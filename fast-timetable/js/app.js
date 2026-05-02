@@ -154,27 +154,6 @@ function parseCSVToEntries(csvText, day) {
   return entries;
 }
 
-async function fetchDayFromSheets(day) {
-  const gid = SHEET_GIDS[day];
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_PUB_ID}/export?format=csv&gid=${gid}`;
-  const proxies = [
-    url,
-    `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  ];
-  for (const u of proxies) {
-    try {
-      const res = await fetch(u + '&t=' + Date.now());
-      if (!res.ok) continue;
-      const text = await res.text();
-      if (text.length < 50 || text.toLowerCase().includes('sign in')) continue;
-      console.log(`✅ ${day}: ${text.length} chars`);
-      return text;
-    } catch(e) { console.warn(`fetch failed: ${e.message}`); }
-  }
-  throw new Error(`Could not fetch ${day}`);
-}
-
 // ─── State ───────────────────────────────────────────────────
 let allClasses    = [];
 let myClassKeys   = new Set(JSON.parse(localStorage.getItem('myClasses') || '[]'));
@@ -200,89 +179,6 @@ const frDaySelect     = document.getElementById('frDaySelect');
 // ─── Data Fetch from timetable.json ──────────────────────────
 // timetable.json is generated from the xlsx and placed in data/ folder
 // Update it by running: python generate_timetable.py
-async function loadLiveData() {
-  // Try live Google Sheets first
-  try {
-    const allEntries = [];
-    for (const day of DAYS) {
-      try {
-        const csv = await fetchDayFromSheets(day);
-        const entries = parseCSVToEntries(csv, day);
-        allEntries.push(...entries);
-        console.log(`✅ ${day}: ${entries.length} entries`);
-      } catch(e) {
-        console.warn(`❌ ${day} failed:`, e.message);
-      }
-    }
-    if (allEntries.length > 100) {
-      console.log(`🔄 Live data loaded: ${allEntries.length} entries`);
-      return allEntries;
-    }
-  } catch(e) {
-    console.warn('Live fetch failed, trying JSON fallback:', e.message);
-  }
-
-  // Fallback to static JSON
-  const urls = ['data/timetable.json', 'timetable.json'];
-  for (const url of urls) {
-    try {
-      const res = await fetch(url + '?t=' + Date.now());
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        console.log('✅ Fallback JSON loaded:', data.length, 'entries');
-        return data;
-      }
-    } catch(e) { console.warn('JSON fallback failed:', e.message); }
-  }
-  throw new Error('Could not load timetable data');
-}
-
-async function refreshData() {
-  try {
-    const entries = await loadLiveData();
-    allClasses = entries;
-    loadError = '';
-    console.log('🔄 Timetable refreshed —', allClasses.length, 'entries loaded');
-    populateSlotFilter();
-    renderTimetable();
-    updateCurrentDayHighlight();
-    hideLoading();
-  } catch (err) {
-    console.error('Error loading data:', err);
-    loadError = 'Could not load timetable data.';
-    if (!allClasses.length) {
-      showLoadError('Could not load timetable. Please try again later.');
-    }
-    hideLoading();
-  }
-}
-
-async function init() {
-  hideLoading();
-  await refreshData();
-  setInterval(refreshData, REFRESH_INTERVAL_MS);
-}
-
-function hideLoading() {
-  loadingScreen.classList.add('hidden');
-  setTimeout(() => loadingScreen.style.display = 'none', 500);
-}
-
-function showLoadError(message) {
-  loadingScreen.innerHTML = `
-    <div class="loader-content">
-      <p style="color:#111827;font-size:1.1rem;font-weight:700;">⚠️ ${message}</p>
-      <button onclick="location.reload()" style="margin-top:1rem;background:#4f46e5;color:#fff;border:none;padding:0.6rem 1.5rem;border-radius:50px;cursor:pointer;font-size:0.9rem;">Retry</button>
-    </div>`;
-  loadingScreen.classList.remove('hidden');
-  loadingScreen.style.display = 'flex';
-}
-
-function populateSlotFilter() {
-  const times = [...new Set(allClasses.map(c => c.time))].sort();
-  frSlotSelect.innerHTML = times.map(t => `<option value="${t}">${t}</option>`).join('');
-}
 
 // ─── TIMETABLE RENDER ────────────────────────────────────────
 
