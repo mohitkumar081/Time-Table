@@ -5,8 +5,8 @@
   "start_url": "/",
   "display": "standalone",
   "background_color": "#121212",
-  "theme_color": "#121212",
-  "orientation": "portrait",
+  "theme_color": "#e05c4a",
+  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "icons/icon-192.png",
@@ -22,5 +22,5 @@
     }
   ],
   "categories": ["education", "utilities"],
-  "screenshots": []
+  "lang": "en"
 }

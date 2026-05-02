@@ -7,13 +7,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css"/>
+  <link rel="icon" href="favicon.ico" type="image/x-icon"/>
   <!-- PWA -->
   <link rel="manifest" href="manifest.json"/>
   <meta name="theme-color" content="#121212"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="FAST TT"/>
   <link rel="apple-touch-icon" href="icons/icon-192.png"/>
+  <link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512.png"/>
 </head>
 <body>
 
@@ -156,7 +160,7 @@
       <button class="modal-close" id="modalClose">✕</button>
     </div>
     <div class="modal-search">
-      <input type="text" id="modalSearchInput" placeholder="e.g. BCS-6B, Zulfiqar Ali..."/>
+      <input type="text" id="modalSearchInput" placeholder="e.g. BCS-6B, Shaheer Ahmed..."/>
       <button class="btn-search" id="modalSearchBtn">Search</button>
     </div>
     <div class="modal-list" id="modalList"></div>
