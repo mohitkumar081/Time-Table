@@ -570,5 +570,12 @@ themeToggle.addEventListener('click', () => {
   localStorage.setItem('theme', isDark ? 'light' : 'dark');
 });
 
+// ─── Init ────────────────────────────────────────────────────
+async function init() {
+  populateSlotFilter();
+  await refreshData();
+  setInterval(refreshData, REFRESH_INTERVAL_MS);
+}
+
 // ─── Start ───────────────────────────────────────────────────
 init();
