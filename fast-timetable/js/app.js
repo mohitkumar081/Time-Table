@@ -182,6 +182,29 @@ const frDaySelect     = document.getElementById('frDaySelect');
 
 // ─── TIMETABLE RENDER ────────────────────────────────────────
 
+function hideLoading() {
+  const ls = document.getElementById('loadingScreen');
+  if (ls) ls.classList.add('hidden');
+}
+
+function showLoadError(msg) {
+  const area = document.getElementById('resultsArea');
+  if (area) area.innerHTML = `
+    <div class="empty-state">
+      <div class="empty-icon">⚠️</div>
+      <h3>Unable to load timetable</h3>
+      <p>${msg}</p>
+      <button class="btn-search" onclick="location.reload()">Retry</button>
+    </div>`;
+  hideLoading();
+}
+
+function populateSlotFilter() {
+  const uniqueTimes = [...new Set(allClasses.map(c => c.time))]
+    .sort((a,b) => timeToMinutes(a) - timeToMinutes(b));
+  frSlotSelect.innerHTML = uniqueTimes.map(t => `<option value="${t}">${t}</option>`).join('');
+}
+
 // Convert "08:55-09:45" → minutes from midnight for sorting
 function timeToMinutes(timeStr) {
   if (!timeStr) return 9999;
