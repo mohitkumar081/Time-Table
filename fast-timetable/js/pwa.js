@@ -3,8 +3,8 @@
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('✅ SW registered'))
-      .catch(err => console.log('❌ SW failed:', err));
+      .then(() => console.log('✅ SW registered'))
+      .catch(err => console.log('❌ SW:', err));
   });
 }
 
@@ -17,16 +17,21 @@ const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
 const isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
 const isAndroid    = /android/i.test(navigator.userAgent);
 
-if (isStandalone) localStorage.setItem('pwaInstalled', 'true');
+// Reset dismissed on every visit so popup always shows
+// (remove this line if you want to remember dismissal)
+localStorage.removeItem('pwaPopupDismissed');
 
-function showPopup() {
-  if (localStorage.getItem('pwaPopupDismissed')) return;
-  if (localStorage.getItem('pwaInstalled')) return;
-  if (isStandalone) return;
-  setTimeout(() => popup?.classList.add('show'), 2500);
+if (isStandalone) {
+  localStorage.setItem('pwaInstalled', 'true');
 }
 
-// Desktop + Android Chrome
+function showPopup() {
+  if (localStorage.getItem('pwaInstalled')) return;
+  if (isStandalone) return;
+  setTimeout(() => popup?.classList.add('show'), 1500);
+}
+
+// Chrome/Edge/Android Chrome
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredPrompt = e;
@@ -36,7 +41,7 @@ window.addEventListener('beforeinstallprompt', e => {
 // iOS Safari
 if (isIOS && !isStandalone) showPopup();
 
-// Samsung + other Android
+// Samsung/other Android without beforeinstallprompt
 if (isAndroid && !isStandalone) showPopup();
 
 btnInstall?.addEventListener('click', async () => {
@@ -47,7 +52,7 @@ btnInstall?.addEventListener('click', async () => {
     deferredPrompt = null;
     popup?.classList.remove('show');
   } else if (isIOS) {
-    alert('iOS install:\n1. Share button dabao ⬆️\n2. "Add to Home Screen" select karo\n3. Add dabao ✅');
+    alert('iOS install karo:\n1. Share ⬆️ button dabao\n2. "Add to Home Screen" select karo\n3. Add dabao ✅');
   } else {
     alert('Install karo:\n1. Browser menu ⋮ kholo\n2. "Add to Home Screen" select karo\n3. Install dabao ✅');
   }

@@ -6,36 +6,52 @@ const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwX0T-kAJH-7f3RdW5Oq3T4Trfb3o5VjBdxv8wcNbPsbAvAymUSD9t281xLND4VyjZO/exec';
 
 async function loadLiveData() {
-  // Try Apps Script Web App first (live data)
+  // 1. Load static JSON instantly (fast!)
+  const urls = ['data/timetable.json', 'timetable.json'];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        console.log('⚡ Static JSON loaded instantly:', data.length, 'entries');
+        // Background: fetch live data and silently update
+        fetchLiveInBackground();
+        return data;
+      }
+    } catch(e) { console.warn('Static JSON failed:', e.message); }
+  }
+
+  // 2. If static fails, try Apps Script (slower)
   try {
-    console.log('🔄 Fetching live data from Apps Script...');
     const res = await fetch(APPS_SCRIPT_URL);
     if (res.ok) {
       const json = await res.json();
       if (json.ok && json.data && json.data.length > 100) {
-        console.log(`✅ Live data loaded: ${json.data.length} entries`);
+        console.log('✅ Live data loaded:', json.data.length, 'entries');
         return json.data;
       }
     }
-  } catch(e) {
-    console.warn('Apps Script fetch failed:', e.message);
-  }
+  } catch(e) { console.warn('Apps Script failed:', e.message); }
 
-  // Fallback to static JSON
-  console.log('⚠️ Falling back to static JSON...');
-  const urls = ['data/timetable.json', 'timetable.json'];
-  for (const url of urls) {
-    try {
-      const res = await fetch(url + '?t=' + Date.now());
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        console.log('✅ Fallback JSON loaded:', data.length, 'entries');
-        return data;
-      }
-    } catch(e) { console.warn('JSON fallback failed:', e.message); }
-  }
   throw new Error('Could not load timetable data');
+}
+
+// Background live update — silently updates after page loads
+async function fetchLiveInBackground() {
+  try {
+    const res = await fetch(APPS_SCRIPT_URL);
+    if (!res.ok) return;
+    const json = await res.json();
+    if (json.ok && json.data && json.data.length > 100) {
+      allClasses = json.data;
+      renderTimetable();
+      populateSlotFilter();
+      console.log('🔄 Background live update:', json.data.length, 'entries');
+    }
+  } catch(e) {
+    console.warn('Background update failed:', e.message);
+  }
 }
 
 async function refreshData() {
@@ -595,9 +611,23 @@ themeToggle.addEventListener('click', () => {
 
 // ─── Init ────────────────────────────────────────────────────
 async function init() {
-  populateSlotFilter();
-  await refreshData();
-  setInterval(refreshData, REFRESH_INTERVAL_MS);
+  // Show loading screen max 800ms - then hide regardless
+  const loadingTimeout = setTimeout(() => hideLoading(), 800);
+
+  try {
+    const entries = await loadLiveData();
+    allClasses = entries;
+    clearTimeout(loadingTimeout);
+    populateSlotFilter();
+    renderTimetable();
+    updateCurrentDayHighlight();
+    hideLoading();
+    // Background live refresh every 5 min
+    setInterval(refreshData, REFRESH_INTERVAL_MS);
+  } catch(err) {
+    clearTimeout(loadingTimeout);
+    showLoadError('Could not load timetable.');
+  }
 }
 
 // ─── Start ───────────────────────────────────────────────────
